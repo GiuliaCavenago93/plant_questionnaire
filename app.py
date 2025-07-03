@@ -2,45 +2,51 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Load questions from Excel
+# Load the Excel file
 questions_df = pd.read_excel("questions.xlsx")
 
-st.title("🌱 Plant Operator Data Collection Form")
+st.set_page_config(page_title="Plant Operator Questionnaire", layout="centered")
+st.title("🌿 Plant Operator Data Collection Form")
 
+# Container for responses
 responses = {}
 
-# Group questions by section
-sections = questions_df['section'].unique()
+# Group by section
+sections = questions_df['Section'].dropna().unique()
 
-with st.form("data_form"):
+with st.form("plant_data_form"):
     for section in sections:
-        st.header(section)
-        section_questions = questions_df[questions_df['section'] == section]
+        st.subheader(f"Section {int(section)}")
+        section_questions = questions_df[questions_df['Section'] == section]
 
         for _, row in section_questions.iterrows():
-            q_key = row['question']
-            input_type = row['input_type']
-            options = str(row['options']).split(',') if pd.notna(row['options']) else []
-            unit_required = row['unit_required'] == 'yes'
+            question = row['Question']
+            input_type = str(row['Input Type']).lower()
+            options = [opt.strip() for opt in str(row['optuons']).split(',')] if pd.notna(row['optuons']) else []
+            unit_options = [u.strip() for u in str(row['Unit Options']).split(',')] if pd.notna(row['Unit Options']) else []
 
-            if input_type == 'dropdown':
-                responses[q_key] = st.selectbox(q_key, options)
-            elif input_type == 'number':
-                responses[q_key] = st.number_input(q_key, step=1.0)
-            elif input_type == 'text':
-                responses[q_key] = st.text_input(q_key)
-            
-            # Ask for unit if required
-            if unit_required:
-                unit_key = f"{q_key} (unit)"
-                responses[unit_key] = st.text_input(unit_key, placeholder="e.g. kg/year, m³/year")
+            if input_type == "dropdown":
+                responses[question] = st.selectbox(question, options)
+            elif input_type == "number input":
+                responses[question] = st.number_input(question, step=0.01)
+            elif input_type == "text":
+                responses[question] = st.text_input(question)
+            elif input_type == "text area":
+                responses[question] = st.text_area(question)
+            else:
+                st.warning(f"⚠️ Unknown input type for: {question}")
+
+            # Ask for unit if unit options exist
+            if unit_options and len(unit_options) > 0 and unit_options[0] != "(no unit)":
+                unit_question = f"{question} - Unit"
+                responses[unit_question] = st.selectbox(unit_question, unit_options)
 
     submitted = st.form_submit_button("Submit")
 
-# Save data to Excel
+# Save responses to Excel if submitted
 if submitted:
     output_df = pd.DataFrame([responses])
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_file = f"response_{timestamp}.xlsx"
     output_df.to_excel(output_file, index=False)
-    st.success(f"✅ Responses saved to {output_file}")
+    st.success(f"✅ Responses saved to: {output_file}")
